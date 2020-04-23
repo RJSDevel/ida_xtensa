@@ -11,5 +11,6 @@ PS. You have to change user_rom seg_size in 61 line, because in my case when I w
 (seg_addr, seg_size) = unpack_from("<II", li.read(8))
 
 it parced wrong value and created db file about 15 GB.
+
 I dont want to spend time for make universal solution.
 

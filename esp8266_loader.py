@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 import struct
 from idaapi import *
 
@@ -17,7 +18,7 @@ def load_file(li, neflags, format):
     li.seek(0)
 
     # set processor type (doesn't appear to work)
-    SetProcessorType("xtensa", SETPROC_ALL);
+    set_processor_type("xtensa", SETPROC_ALL)
 
     # load ROM segment
     (magic, segments, flash_mode, flash_size_freq, entrypoint) = struct.unpack('<BBBBI', li.read(8))
@@ -28,6 +29,7 @@ def load_file(li, neflags, format):
     print "Entry point: %x" % entrypoint
     print "\n"
 
+    boot_sections_address = []
     for k in xrange(segments):
         (seg_addr, seg_size) = struct.unpack("<II", li.read(8))
         file_offset = li.tell()
@@ -39,31 +41,29 @@ def load_file(li, neflags, format):
         print "ROM size: %x" % seg_size
         print "\n"
 
+        boot_sections_address.append(seg_addr)
+
         li.seek(file_offset + seg_size, 0)
 
     idaapi.add_entry(entrypoint, entrypoint, "rom_entry", 1)
 
-    # Go to user ROM code
-    li.seek(li.tell() - 0x0C, 0)
-    print "offset: %x" % li.tell()
-
-    # load ROM segment
-    (magic, segments, flash_mode, flash_size_freq, entrypoint) = struct.unpack('<BBBBI', li.read(8))
+    li.seek(li.tell() - segments * 4, 0)
 
     print "Reading user firmware"
+
+    (magic, segments, flash_mode, flash_size_freq, entrypoint) = struct.unpack('<BBBBI', li.read(8))
     print "Magic: %x" % magic
     print "Segments: %x" % segments
     print "Entry point: %x" % entrypoint
     print "\n"
 
-    file_offset = li.tell()
-    li.seek(0, 2)
-    seg_size = 0x107580 # size to end  # li.tell() - file_offset - 0x18
-    li.seek(file_offset, 0)
-
     for k in xrange(segments):
-        # (seg_addr, seg_size) = unpack_from("<II", li.read(8))
-        (seg_addr, unk) = struct.unpack("<II", li.read(8))
+        (seg_addr, seg_size) = struct.unpack("<II", li.read(8))
+
+        for bsa in boot_sections_address:
+            if seg_addr + seg_size > bsa:
+                seg_size = bsa - seg_addr
+                break
 
         if seg_addr == 0x40100000:
             seg_name = ".user_rom"
